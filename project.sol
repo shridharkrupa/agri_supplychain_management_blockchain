@@ -30,6 +30,13 @@ contract supplyChainAgriculture {
     address[] seedUpdateAddress;
     uint seedCompanyCount = 0;
 
+    Elevator[] elevatorListArray;
+    mapping(address=>bool) elevatorListMapping;
+    mapping(address=>uint) elevatorListIndex;
+    uint elevatorCount;
+
+
+
     modifier onlyOwner {
         require(msg.sender == owner,"Sorry, This information is confidential.");
         _;
@@ -65,6 +72,23 @@ contract supplyChainAgriculture {
         uint pricePer10g;
     }
 
+    struct Elevator {
+        address payable elevatorAddress;
+        string elevatorName;
+        string hash;
+        uint storageQuantity;
+    }
+
+    struct GrainDetails {
+        string grainType;
+        string variety;
+        uint quantity;
+        uint moisture;
+        uint temperature;
+        uint pricePerKg;
+        uint purchaseDate;
+    }
+
     function addFarmer(string memory _hash) public {
         farmerListArray.push(Farmer(payable(msg.sender),_hash));
         farmerListMapping[msg.sender] = true;
@@ -91,6 +115,61 @@ contract supplyChainAgriculture {
     function updateSeedDetails(string memory _seedType,string memory _variety,uint _quantity,uint _pricePer10g) public onlySeedCompany(msg.sender) {
         seedTypeVariety[msg.sender] = SeedDetails(_seedType,_variety,_quantity,_pricePer10g);
         seedUpdateAddress.push(msg.sender);
+    }
+
+    function addSeedQuantity(string memory _seedType, string memory _variety, uint _addQuantity) public onlySeedCompany(msg.sender) {
+        address x;
+        for(uint i=0;i<seedUpdateAddress.length;i++)
+        {
+            if(seedUpdateAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((seedTypeVariety[seedUpdateAddress[i]].seedType))) ==keccak256(abi.encodePacked((_seedType))))
+                {
+                    if(keccak256(abi.encodePacked((seedTypeVariety[seedUpdateAddress[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        x = seedUpdateAddress[i];
+                    }
+                }
+            }
+        }
+        seedTypeVariety[x].quantity += _addQuantity;
+    }
+
+    function removeSeedQuantity(string memory _seedType, string memory _variety, uint _addQuantity) public onlySeedCompany(msg.sender) {
+        address x;
+        for(uint i=0;i<seedUpdateAddress.length;i++)
+        {
+            if(seedUpdateAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((seedTypeVariety[seedUpdateAddress[i]].seedType))) ==keccak256(abi.encodePacked((_seedType))))
+                {
+                    if(keccak256(abi.encodePacked((seedTypeVariety[seedUpdateAddress[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        x = seedUpdateAddress[i];
+                    }
+                }
+            }
+        }
+        seedTypeVariety[x].quantity -= _addQuantity;
+
+    }
+
+    function updateSeedPrice(string memory _seedType, string memory _variety, uint _pricePer10g) public onlySeedCompany(msg.sender) {
+        address x;
+        for(uint i=0;i<seedUpdateAddress.length;i++)
+        {
+            if(seedUpdateAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((seedTypeVariety[seedUpdateAddress[i]].seedType))) ==keccak256(abi.encodePacked((_seedType))))
+                {
+                    if(keccak256(abi.encodePacked((seedTypeVariety[seedUpdateAddress[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        x = seedUpdateAddress[i];
+                    }
+                }
+            }
+        }
+        seedTypeVariety[x].pricePer10g = _pricePer10g;
     }
 
     function createContract() public onlyFarmer(msg.sender) {
@@ -139,14 +218,12 @@ contract supplyChainAgriculture {
         }
     }
 
-
-
-
-
-
-
-
-
+    function addElevator(string memory _hash,string memory _name,uint _storageQuantity) public {
+        elevatorListArray.push(Elevator(payable(msg.sender),_name,_hash,_storageQuantity));
+        elevatorListMapping[msg.sender] = true;
+        elevatorListIndex[msg.sender] = elevatorCount;
+        elevatorCount++;
+    }
 
 
 }
