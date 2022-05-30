@@ -13,6 +13,9 @@ contract supplyChainAgriculture {
 
     enum CONTRACTSTATUS {idle,notCreated,created,sendRequestSubmitted}
 
+    event transferComplete(address farmer, address Seedcompany,string seedType,string variety,uint quantity,uint Price,uint time);
+    event sellOfSeeds(address farmer, address seedCompany, string seedType, string variety,uint quantity,uint time);
+
     mapping(address=>CONTRACTSTATUS) contStat;
 
     Farmer[] farmerListArray;
@@ -24,6 +27,7 @@ contract supplyChainAgriculture {
     mapping(address=>bool) seedCompanyListMapping;
     mapping(address => uint) seedCompanyIndex;
     mapping(address=>SeedDetails) seedTypeVariety;
+    address[] seedUpdateAddress;
     uint seedCompanyCount = 0;
 
     modifier onlyOwner {
@@ -58,6 +62,7 @@ contract supplyChainAgriculture {
         string seedType;
         string variety;
         uint quantity;
+        uint pricePer10g;
     }
 
     function addFarmer(string memory _hash) public {
@@ -82,8 +87,10 @@ contract supplyChainAgriculture {
         return (seedCompanyListArray,seedCompanyCount);
     }
 
-    function updateSeedDetails(string memory _seedType,string memory _variety,uint _quantity) public onlySeedCompany(msg.sender) {
-        seedTypeVariety[msg.sender] = SeedDetails(_seedType,_variety,_quantity);
+
+    function updateSeedDetails(string memory _seedType,string memory _variety,uint _quantity,uint _pricePer10g) public onlySeedCompany(msg.sender) {
+        seedTypeVariety[msg.sender] = SeedDetails(_seedType,_variety,_quantity,_pricePer10g);
+        seedUpdateAddress.push(msg.sender);
     }
 
     function createContract() public onlyFarmer(msg.sender) {
@@ -91,12 +98,45 @@ contract supplyChainAgriculture {
         contStat[msg.sender] = CONTRACTSTATUS.created;
     }
 
-    function buySeeds() public onlyFarmer(msg.sender) {
+    function buySeeds(address payable _seedCompany,string memory _seedType,string memory _variety, uint _quantity) public payable onlyFarmer(msg.sender) {
+        require(farmerListMapping[msg.sender], "Farmer doesn't Exist");
+        address x;
+        for(uint i=0;i<seedUpdateAddress.length;i++)
+        {
+            if(seedUpdateAddress[i]==_seedCompany)
+            {
+                if(keccak256(abi.encodePacked((seedTypeVariety[seedUpdateAddress[i]].seedType))) ==keccak256(abi.encodePacked((_seedType))))
+                {
+                    if(keccak256(abi.encodePacked((seedTypeVariety[seedUpdateAddress[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        x = seedUpdateAddress[i];
+                    }
+                }
+            }
+        }
+        require(_quantity > seedTypeVariety[x].quantity, "This much qunatity of seed is not available");
+        if(_quantity <= seedTypeVariety[x].quantity)
+        {
+            require(msg.value>0, "you have entered 0");
+            require(msg.value == _quantity * seedTypeVariety[x].pricePer10g, "You haven't enterd the expected value");
+            address payable receiever = payable(_seedCompany);
+            receiever.transfer(msg.value); 
+            emit transferComplete(msg.sender, _seedCompany,_seedType,_variety,_quantity,msg.value,block.timestamp);
+            seedTypeVariety[x].quantity -= _quantity;
+            seedPricePaid = true;
+        }
 
     }
 
-    function sellSeeds() public onlySeedCompany(msg.sender) {
-        
+    function sellSeeds(address _farmer,string memory _seedType, string memory _variety,uint _quantity) public onlySeedCompany(msg.sender) {
+        require(seedCompanyListMapping[msg.sender], "Seed Company Doesn't Exist");
+        if(seedPricePaid==true)
+        {
+            emit sellOfSeeds(_farmer, msg.sender, _seedType, _variety,_quantity,block.timestamp);
+        }
+        else {
+            revert("Farmer doesn't exist or he didn't pay the bills");
+        }
     }
 
 
