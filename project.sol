@@ -200,7 +200,7 @@ contract supplyChainAgriculture {
                 }
             }
         }
-        require(_quantity > seedTypeVariety[x].quantity, "This much qunatity of seed is not available");
+        require(_quantity < seedTypeVariety[x].quantity, "This much qunatity of seed is not available");
         if(_quantity <= seedTypeVariety[x].quantity)
         {
             require(msg.value>0, "you have entered 0");
@@ -245,7 +245,7 @@ contract supplyChainAgriculture {
     }
 
     function buyGrainFromFarmer() public onlyElevator(msg.sender) {
-        
+
     }
 
     function sellGrainToElevator() public onlyFarmer(msg.sender) {
