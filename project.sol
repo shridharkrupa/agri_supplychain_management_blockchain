@@ -19,6 +19,20 @@ contract supplyChainAgriculture {
     event sellGrainsToElevator(address farmer,address elevator,string grainType,string variety,uint quantity,uint pricePer1q,uint purchaseDate);
 
     mapping(address=>CONTRACTSTATUS) contStat;
+    mapping(uint=>SeedTrans) seedTrans;
+    uint seedTransCount = 0;
+    mapping(uint=>FarmerToElevatorTrans) farmerToElevatorTrans;
+    uint farmerToElevatorTransCount = 0;
+
+    struct SeedTrans {
+        address farmer;
+        address seedCompany;
+    }
+
+    struct FarmerToElevatorTrans {
+        address farmer;
+        address elevator;
+    }
 
     Farmer[] farmerListArray;
     mapping(address =>bool) farmerListMapping;
@@ -229,6 +243,8 @@ contract supplyChainAgriculture {
         require(seedCompanyListMapping[msg.sender], "Seed Company Doesn't Exist");
         if(seedPricePaid==true)
         {
+            seedTrans[seedTransCount] = SeedTrans(_farmer,msg.sender);
+            seedTransCount++;
             emit sellOfSeeds(_farmer, msg.sender, _seedType, _variety,_quantity,block.timestamp);
         }
         else {
@@ -258,6 +274,26 @@ contract supplyChainAgriculture {
     function updateGrainFarmerQuantity(string memory _seedType,string memory _variety, uint _quantity, uint _pricePer1q) public onlyFarmer(msg.sender) {
         grownGrain[msg.sender] = GrownGrain(_seedType,_variety,_quantity,_pricePer1q);
         grownGrainAddress.push(msg.sender);
+    }
+
+    function updateGrainPriceByFarmer(string memory _grainTypeGrown,string memory _variety,uint _pricePer1q) public onlyFarmer(msg.sender) {
+        require(farmerListMapping[msg.sender], "Farmer doesn't exist");
+        address x;
+        for(uint i=0;i<grownGrainAddress.length;i++)
+        {
+            if(grownGrainAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((grownGrain[grownGrainAddress[i]].grainTypeGrown))) ==keccak256(abi.encodePacked((_grainTypeGrown))))
+                {
+                    if(keccak256(abi.encodePacked((grownGrain[grownGrainAddress[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        x = grownGrainAddress[i];
+                    }
+                }
+            }
+        }
+        grownGrain[x].pricePer1q = _pricePer1q;
+
     }
 
     function buyGrainFromFarmer(address payable _farmer,string memory _grainTypeGrown,string memory _variety,uint _quantity) public payable onlyElevator(msg.sender) {
@@ -296,6 +332,7 @@ contract supplyChainAgriculture {
         grainUpdateaAddress.push(_elevator);
         if(elevatorToFarmerTransfer==true )
         {
+            farmerToElevatorTrans[farmerToElevatorTransCount] = FarmerToElevatorTrans(msg.sender,_elevator);
             emit sellGrainsToElevator(msg.sender,_elevator,_grainType,_variety,_quantity,_pricePer1q,_purchaseDate);
         }
         else
