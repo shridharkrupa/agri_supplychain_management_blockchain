@@ -33,8 +33,9 @@ contract supplyChainAgriculture {
     Elevator[] elevatorListArray;
     mapping(address=>bool) elevatorListMapping;
     mapping(address=>uint) elevatorListIndex;
-    uint elevatorCount;
-
+    uint elevatorCount = 0;
+    mapping(address=>GrainDetails) grainDetails;
+    address[] grainUpdateaAddress;
 
 
     modifier onlyOwner {
@@ -50,6 +51,12 @@ contract supplyChainAgriculture {
     modifier onlySeedCompany(address _seedCompany)
     {
         require(seedCompanyListMapping[_seedCompany], "Seed company doesn't exist!");
+        _;
+    }
+
+    modifier onlyElevator(address _elevator)
+    {
+        require(elevatorListMapping[_elevator], "Elevator doesn't exist");
         _;
     }
 
@@ -218,11 +225,31 @@ contract supplyChainAgriculture {
         }
     }
 
-    function addElevator(string memory _hash,string memory _name,uint _storageQuantity) public {
+    function addElevator(string memory _hash,string memory _name,uint _storageQuantity) public onlyElevator(msg.sender) {
         elevatorListArray.push(Elevator(payable(msg.sender),_name,_hash,_storageQuantity));
         elevatorListMapping[msg.sender] = true;
         elevatorListIndex[msg.sender] = elevatorCount;
         elevatorCount++;
+    }
+
+    function updateStorageQuantity(uint _storageQuantity) public onlyElevator(msg.sender) {
+        uint index;
+        for(uint i = 0;i<elevatorListArray.length;i++)
+        {
+            if(msg.sender == elevatorListArray[i].elevatorAddress)
+            {
+                index = i;
+            }
+        }
+        elevatorListArray[index].storageQuantity = _storageQuantity;
+    }
+
+    function buyGrainFromFarmer() public onlyElevator(msg.sender) {
+        
+    }
+
+    function sellGrainToElevator() public onlyFarmer(msg.sender) {
+
     }
 
 
