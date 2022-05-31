@@ -13,8 +13,10 @@ contract supplyChainAgriculture {
 
     enum CONTRACTSTATUS {idle,notCreated,created,sendRequestSubmitted}
 
-    event transferComplete(address farmer, address Seedcompany,string seedType,string variety,uint quantity,uint Price,uint time);
+    event transferCompleteSeed(address farmer, address Seedcompany,string seedType,string variety,uint quantity,uint Price,uint time);
+    event transferCompletegrownGrain(address elevator, address farmer,string grownGrainType,string variety,uint quantity,uint Price,uint time);
     event sellOfSeeds(address farmer, address seedCompany, string seedType, string variety,uint quantity,uint time);
+    event sellGrainsToElevator(address farmer,address elevator,string grainType,string variety,uint quantity,uint pricePer1q,uint purchaseDate);
 
     mapping(address=>CONTRACTSTATUS) contStat;
 
@@ -22,6 +24,8 @@ contract supplyChainAgriculture {
     mapping(address =>bool) farmerListMapping;
     mapping(address =>uint) farmerListIndex;
     uint farmerCount = 0;
+    mapping(address=>GrownGrain) grownGrain;
+    address[] grownGrainAddress;
 
     SeedCompany[] seedCompanyListArray;
     mapping(address=>bool) seedCompanyListMapping;
@@ -92,8 +96,15 @@ contract supplyChainAgriculture {
         uint quantity;
         uint moisture;
         uint temperature;
-        uint pricePerKg;
+        uint pricePer1q;
         uint purchaseDate;
+    }
+
+    struct GrownGrain {
+        string grainTypeGrown;
+        string variety;
+        uint quantity;
+        uint pricePer1q;
     }
 
     function addFarmer(string memory _hash) public {
@@ -200,14 +211,14 @@ contract supplyChainAgriculture {
                 }
             }
         }
-        require(_quantity < seedTypeVariety[x].quantity, "This much qunatity of seed is not available");
+        require(_quantity <= seedTypeVariety[x].quantity, "This much qunatity of seed is not available");
         if(_quantity <= seedTypeVariety[x].quantity)
         {
             require(msg.value>0, "you have entered 0");
             require(msg.value == _quantity * seedTypeVariety[x].pricePer10g, "You haven't enterd the expected value");
             address payable receiever = payable(_seedCompany);
             receiever.transfer(msg.value); 
-            emit transferComplete(msg.sender, _seedCompany,_seedType,_variety,_quantity,msg.value,block.timestamp);
+            emit transferCompleteSeed(msg.sender, _seedCompany,_seedType,_variety,_quantity,msg.value,block.timestamp);
             seedTypeVariety[x].quantity -= _quantity;
             seedPricePaid = true;
         }
@@ -242,14 +253,56 @@ contract supplyChainAgriculture {
             }
         }
         elevatorListArray[index].storageQuantity = _storageQuantity;
+    } 
+
+    function updateGrainFarmerQuantity(string memory _seedType,string memory _variety, uint _quantity, uint _pricePer1q) public onlyFarmer(msg.sender) {
+        grownGrain[msg.sender] = GrownGrain(_seedType,_variety,_quantity,_pricePer1q);
+        grownGrainAddress.push(msg.sender);
     }
 
-    function buyGrainFromFarmer() public onlyElevator(msg.sender) {
-
+    function buyGrainFromFarmer(address payable _farmer,string memory _grainTypeGrown,string memory _variety,uint _quantity) public payable onlyElevator(msg.sender) {
+        require(elevatorListMapping[msg.sender],"Elevator doesn't exist");
+        address x;
+        for(uint i=0;i<grownGrainAddress.length;i++)
+        {
+            if(grownGrainAddress[i]==_farmer)
+            {
+                if(keccak256(abi.encodePacked((grownGrain[grownGrainAddress[i]].grainTypeGrown))) ==keccak256(abi.encodePacked((_grainTypeGrown))))
+                {
+                    if(keccak256(abi.encodePacked((grownGrain[grownGrainAddress[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        x = grownGrainAddress[i];
+                    }
+                }
+            }
+        }
+        require(_quantity <= grownGrain[x].quantity, "This much qunatity of seed is not available");
+        if(_quantity <= grownGrain[x].quantity)
+        {
+            require(msg.value>0, "you have entered 0");
+            require(msg.value == _quantity * grownGrain[x].pricePer1q, "You haven't enterd the expected value");
+            address payable receiever = payable(_farmer);
+            receiever.transfer(msg.value); 
+            emit transferCompletegrownGrain(msg.sender, _farmer,_grainTypeGrown,_variety,_quantity,msg.value,block.timestamp);
+            grownGrain[x].quantity -= _quantity;
+            elevatorToFarmerTransfer = true;   
+        }
     }
 
-    function sellGrainToElevator() public onlyFarmer(msg.sender) {
 
+    function sellGrainToElevator(address _elevator, string memory _grainType,string memory _variety,uint _quantity,uint _moisture,uint _temperature,uint _pricePer1q,uint _purchaseDate  ) public onlyFarmer(msg.sender) {
+        require(elevatorListMapping[_elevator],"Elevator doesn't exist");
+        grainDetails[_elevator] = GrainDetails(_grainType,_variety,_quantity,_moisture,_temperature,_pricePer1q,_purchaseDate);
+        grainUpdateaAddress.push(_elevator);
+        if(elevatorToFarmerTransfer==true )
+        {
+            emit sellGrainsToElevator(msg.sender,_elevator,_grainType,_variety,_quantity,_pricePer1q,_purchaseDate);
+        }
+        else
+        {
+            revert("elevator doesn't exist or he didn't pay the bills");
+        }
+        
     }
 
 
