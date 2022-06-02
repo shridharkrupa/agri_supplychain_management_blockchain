@@ -19,20 +19,28 @@ contract supplyChainAgriculture {
     event sellOfSeeds(address farmer, address seedCompany, string seedType, string variety,uint quantity,uint time);
     event sellGrainsToElevator(address farmer,address elevator,string grainType,string variety,uint quantity,uint pricePer1q,uint purchaseDate);
     event transferCompleteFromProcessorToElevator(address Processor ,address elevator,string grainType,string variety,uint quantity,uint Price,uint time);
+    event sellGrainsToProcessorFromElevator(address Elevator,address Processor,string grainType,string variety,uint quantity,uint pricePer1q,uint purchaseDate);
 
     mapping(address=>CONTRACTSTATUS) contStat;
     mapping(uint=>SeedTrans) seedTrans;
     uint seedTransCount = 0;
     mapping(uint=>FarmerToElevatorTrans) farmerToElevatorTrans;
     uint farmerToElevatorTransCount = 0;
+    mapping (uint=>ProcessorToElevatorTrans) processorToElevatorTrans; 
+    uint processorToElevatorTransCount = 0;
 
     struct SeedTrans {
-        address farmer;
         address seedCompany;
+        address farmer; 
     }
 
     struct FarmerToElevatorTrans {
         address farmer;
+        address elevator;
+    }
+
+    struct ProcessorToElevatorTrans {
+        address processor;
         address elevator;
     }
 
@@ -63,6 +71,8 @@ contract supplyChainAgriculture {
     mapping(address =>bool) processorListMapping;
     mapping(address =>uint) processorListIndex;
     uint processorCount = 0;
+    mapping(address=>ProcessorBoughtGrainFromElevator) processorGrainDetails;
+    address[] processorGrain;
 
 
 
@@ -280,7 +290,7 @@ contract supplyChainAgriculture {
         require(seedCompanyListMapping[msg.sender], "Seed Company Doesn't Exist");
         if(seedPricePaid==true)
         {
-            seedTrans[seedTransCount] = SeedTrans(_farmer,msg.sender);
+            seedTrans[seedTransCount] = SeedTrans(msg.sender,_farmer);
             seedTransCount++;
             emit sellOfSeeds(_farmer, msg.sender, _seedType, _variety,_quantity,block.timestamp);
         }
@@ -370,6 +380,7 @@ contract supplyChainAgriculture {
         if(elevatorToFarmerTransfer==true )
         {
             farmerToElevatorTrans[farmerToElevatorTransCount] = FarmerToElevatorTrans(msg.sender,_elevator);
+            farmerToElevatorTransCount++;
             emit sellGrainsToElevator(msg.sender,_elevator,_grainType,_variety,_quantity,_pricePer1q,_purchaseDate);
         }
         else
@@ -474,6 +485,25 @@ contract supplyChainAgriculture {
             emit transferCompleteFromProcessorToElevator(msg.sender, _elevator,_grainType,_variety,_quantity,msg.value,block.timestamp);
             grainFromElevatorDetails[x].quantity -= _quantity;
             processorToElevatorTransfer = true;   
+        }
+
+    }
+
+    function sellGrainToProcessor(address _processor,string memory _grainType,string memory _grainVariety,uint _quantity,uint _pricePer1q,uint _purchaseDate) public onlyElevator(msg.sender) {
+        require(elevatorListMapping[msg.sender], "elevator doesn't exist");
+        require(processorListMapping[_processor], "Processor doesn't exist");
+
+        processorGrainDetails[_processor] = ProcessorBoughtGrainFromElevator(_grainType,_grainVariety,_quantity,_pricePer1q,_purchaseDate);
+        processorGrain.push(_processor);
+        if(processorToElevatorTransfer==true )
+        {
+            processorToElevatorTrans[processorToElevatorTransCount] = ProcessorToElevatorTrans(_processor,msg.sender);
+            processorToElevatorTransCount++;
+            emit sellGrainsToProcessorFromElevator(msg.sender,_processor,_grainType,_grainVariety,_quantity,_pricePer1q,_purchaseDate);
+        }
+        else
+        {
+            revert("Processor doesn't exist or he didn't pay the bills");
         }
 
     }
