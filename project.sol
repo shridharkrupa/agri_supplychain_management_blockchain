@@ -54,6 +54,14 @@ contract supplyChainAgriculture {
     uint elevatorCount = 0;
     mapping(address=>GrainDetails) grainDetails;
     address[] grainUpdateaAddress;
+    mapping(address=> soldGrainDetailsFromElevator) grainFromElevatorDetails;
+    address[] grainUpdateElevatorAddress;
+
+    Processor[] processorListArray;
+    mapping(address =>bool) processorListMapping;
+    mapping(address =>uint) processorListIndex;
+    uint processorCount = 0;
+
 
 
     modifier onlyOwner {
@@ -75,6 +83,12 @@ contract supplyChainAgriculture {
     modifier onlyElevator(address _elevator)
     {
         require(elevatorListMapping[_elevator], "Elevator doesn't exist");
+        _;
+    }
+
+    modifier onlyProcessor(address _processor)
+    {
+        require(processorListMapping[_processor],"Processor doesn't exist");
         _;
     }
 
@@ -119,6 +133,27 @@ contract supplyChainAgriculture {
         string variety;
         uint quantity;
         uint pricePer1q;
+    }
+
+    struct Processor {
+        address payable processorAddress;
+        string processorName;
+        string hash;
+    }
+
+    struct soldGrainDetailsFromElevator {
+        string grainType;
+        string grainVariety;
+        uint quantity;
+        uint pricePer1q;
+    }
+
+    struct ProcessorBoughtGrainFromElevator {
+        string grainType;
+        string grainVariety;
+        uint quantity;
+        uint pricePer1q;
+        uint purcahseDate;
     }
 
     function addFarmer(string memory _hash) public {
@@ -252,7 +287,7 @@ contract supplyChainAgriculture {
         }
     }
 
-    function addElevator(string memory _hash,string memory _name,uint _storageQuantity) public onlyElevator(msg.sender) {
+    function addElevator(string memory _hash,string memory _name,uint _storageQuantity) public {
         elevatorListArray.push(Elevator(payable(msg.sender),_name,_hash,_storageQuantity));
         elevatorListMapping[msg.sender] = true;
         elevatorListIndex[msg.sender] = elevatorCount;
@@ -340,6 +375,21 @@ contract supplyChainAgriculture {
             revert("elevator doesn't exist or he didn't pay the bills");
         }
         
+    }
+
+    function updategrainDetailsFromElevator(string memory _grainType,string memory _variety,uint quantity, uint _pricePer1q ) public onlyElevator(msg.sender) {
+        
+    }
+
+    function addProcessor(string memory _hash,string memory _name) public {
+        processorListArray.push(Processor(payable(msg.sender),_name,_hash));
+        processorListMapping[msg.sender] = true;
+        processorListIndex[msg.sender] = processorCount;
+        processorCount++;
+    }
+
+    function buyGrainFromProcessor() public payable onlyProcessor(msg.sender) {
+
     }
 
 
