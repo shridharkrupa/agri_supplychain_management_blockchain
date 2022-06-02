@@ -10,6 +10,7 @@ contract supplyChainAgriculture {
     address private owner;
     bool seedPricePaid = false;
     bool elevatorToFarmerTransfer = false;
+    bool processorToElevatorTransfer = false;
 
     enum CONTRACTSTATUS {idle,notCreated,created,sendRequestSubmitted}
 
@@ -17,6 +18,7 @@ contract supplyChainAgriculture {
     event transferCompletegrownGrain(address elevator, address farmer,string grownGrainType,string variety,uint quantity,uint Price,uint time);
     event sellOfSeeds(address farmer, address seedCompany, string seedType, string variety,uint quantity,uint time);
     event sellGrainsToElevator(address farmer,address elevator,string grainType,string variety,uint quantity,uint pricePer1q,uint purchaseDate);
+    event transferCompleteFromProcessorToElevator(address Processor ,address elevator,string grainType,string variety,uint quantity,uint Price,uint time);
 
     mapping(address=>CONTRACTSTATUS) contStat;
     mapping(uint=>SeedTrans) seedTrans;
@@ -377,9 +379,67 @@ contract supplyChainAgriculture {
         
     }
 
-    function updategrainDetailsFromElevator(string memory _grainType,string memory _variety,uint quantity, uint _pricePer1q ) public onlyElevator(msg.sender) {
-        
+    function updategrainDetailsFromElevator(string memory _grainType,string memory _variety,uint _quantity, uint _pricePer1q ) public onlyElevator(msg.sender) {
+        require(elevatorListMapping[msg.sender],"Elevator doesn't exist");
+        grainFromElevatorDetails[msg.sender] = soldGrainDetailsFromElevator(_grainType,_variety,_quantity,_pricePer1q);
+        grainUpdateElevatorAddress.push(msg.sender);
     }
+
+    function updateGrainPriceFromElevator(string memory _grainType,string memory _variety, uint _pricePer1q) public onlyElevator(msg.sender) {
+        address x;
+        for(uint i=0;i<grainUpdateElevatorAddress.length;i++)
+        {
+            if(grainUpdateElevatorAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((grainFromElevatorDetails[grainUpdateElevatorAddress[i]].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((grainFromElevatorDetails[grainUpdateElevatorAddress[i]].grainVariety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        x = grainUpdateElevatorAddress[i];
+                    }
+                }
+            }
+        }
+        grainFromElevatorDetails[x].pricePer1q = _pricePer1q;
+    }
+
+    function addGrainQuantityFromElevator(string memory _grainType,string memory _variety, uint _quantity) public onlyElevator(msg.sender) {
+        address x;
+        for(uint i=0;i<grainUpdateElevatorAddress.length;i++)
+        {
+            if(grainUpdateElevatorAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((grainFromElevatorDetails[grainUpdateElevatorAddress[i]].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((grainFromElevatorDetails[grainUpdateElevatorAddress[i]].grainVariety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        x = grainUpdateElevatorAddress[i];
+                    }
+                }
+            }
+        }
+        grainFromElevatorDetails[x].quantity += _quantity;
+    }
+
+    function removeGrainQuantityFromElevator(string memory _grainType,string memory _variety, uint _quantity) public onlyElevator(msg.sender) {
+        address x;
+        for(uint i=0;i<grainUpdateElevatorAddress.length;i++)
+        {
+            if(grainUpdateElevatorAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((grainFromElevatorDetails[grainUpdateElevatorAddress[i]].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((grainFromElevatorDetails[grainUpdateElevatorAddress[i]].grainVariety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        x = grainUpdateElevatorAddress[i];
+                    }
+                }
+            }
+        }
+        grainFromElevatorDetails[x].quantity -= _quantity;
+    }
+
+
 
     function addProcessor(string memory _hash,string memory _name) public {
         processorListArray.push(Processor(payable(msg.sender),_name,_hash));
@@ -388,7 +448,33 @@ contract supplyChainAgriculture {
         processorCount++;
     }
 
-    function buyGrainFromProcessor() public payable onlyProcessor(msg.sender) {
+    function buyGrainFromElevator(address payable _elevator,string memory _grainType,string memory _variety,uint _quantity ) public payable onlyProcessor(msg.sender) {
+        require(processorListMapping[msg.sender],"Elevator doesn't exist");
+        address x;
+        for(uint i=0;i<grainUpdateElevatorAddress.length;i++)
+        {
+            if(grainUpdateElevatorAddress[i]==_elevator)
+            {
+                if(keccak256(abi.encodePacked((grainFromElevatorDetails[grainUpdateElevatorAddress[i]].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((grainFromElevatorDetails[grainUpdateElevatorAddress[i]].grainVariety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        x = grainUpdateElevatorAddress[i];
+                    }
+                }
+            }
+        }
+        require(_quantity <= grainFromElevatorDetails[x].quantity, "This much qunatity of seed is not available");
+        if(_quantity <= grainFromElevatorDetails[x].quantity)
+        {
+            require(msg.value>0, "you have entered 0");
+            require(msg.value == _quantity * grainFromElevatorDetails[x].pricePer1q, "You haven't enterd the expected value");
+            address payable receiever = payable(_elevator);
+            receiever.transfer(msg.value); 
+            emit transferCompleteFromProcessorToElevator(msg.sender, _elevator,_grainType,_variety,_quantity,msg.value,block.timestamp);
+            grainFromElevatorDetails[x].quantity -= _quantity;
+            processorToElevatorTransfer = true;   
+        }
 
     }
 
