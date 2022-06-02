@@ -73,6 +73,8 @@ contract supplyChainAgriculture {
     uint processorCount = 0;
     mapping(address=>ProcessorBoughtGrainFromElevator) processorGrainDetails;
     address[] processorGrain;
+    mapping(address=>ProcessedGrainDetails) processedGrainDetails;
+    address[] processedAddress;
 
 
 
@@ -166,6 +168,14 @@ contract supplyChainAgriculture {
         uint quantity;
         uint pricePer1q;
         uint purcahseDate;
+    }
+
+    struct ProcessedGrainDetails {
+        string processedGrainType;
+        string processedGrainVariety;
+        uint quantity;
+        uint pricePerLot;
+        uint manufactureDate;
     }
 
     function addFarmer(string memory _hash) public {
@@ -505,8 +515,13 @@ contract supplyChainAgriculture {
         {
             revert("Processor doesn't exist or he didn't pay the bills");
         }
-
     }
+
+    function updateProcessedGrainDetails(string memory _processedGrainType,string memory _processedGrainVariety,uint _quantity,uint procePerLot) public onlyProcessor(msg.sender) {
+        
+    }
+
+    
 
 
 }
