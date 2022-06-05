@@ -92,6 +92,8 @@ contract supplyChainAgriculture {
     uint distributorCount;
     mapping(address=>ProcessorToDistributorGrainDetails) processorToDistributorGrainDetails;
     address[] processorToDistributor;
+    mapping(address=>DistributorAvailableGrainDetails) distributorAvailableGrainDetails;
+    address[] distributorAvailableGrainAddress;
 
 
 
@@ -214,6 +216,17 @@ contract supplyChainAgriculture {
         uint quantity;
         uint price;
         uint soldDate;
+        uint manufactureDate;
+        uint expDate;
+    }
+
+    struct DistributorAvailableGrainDetails {
+        string grainType;
+        string variety;
+        uint quantity;
+        uint pricePer10kg;
+        uint manufactureDate;
+        uint expDate;
     }
 
     function addFarmer(string memory _hash) public {
@@ -650,7 +663,7 @@ contract supplyChainAgriculture {
         distributorCount++;
     }
 
-    function buyGrainFromProcessor(address _processor, string memory _grainType, string memory _grainVariety,uint _quantity) public payable onlyDistributor(msg.sender) {
+    function buyGrainFromProcessor(address _processor, string memory _grainType, string memory _grainVariety,uint _quantity,uint _manufactureDate) public payable onlyDistributor(msg.sender) {
         require(distributorListMapping[msg.sender], "Distributor doesn't exist");
         address x;
         for(uint i=0;i<processedAddress.length;i++)
@@ -661,7 +674,10 @@ contract supplyChainAgriculture {
                 {
                     if(keccak256(abi.encodePacked((processedGrainDetails[processedAddress[i]].processedGrainVariety))) ==keccak256(abi.encodePacked((_grainVariety))))
                     {
-                        x = processedAddress[i];
+                        if(processedGrainDetails[processedAddress[i]].manufactureDate == _manufactureDate)
+                        {
+                            x = processedAddress[i];
+                        }
                     }
                 }
             }
@@ -679,12 +695,30 @@ contract supplyChainAgriculture {
         }
     }
 
-    function sellGrainToDistributorFromProcessor(address _distributor,string memory _grainType,string memory _variety,uint _quantity,uint _pricePerLot,uint _soldDate) public onlyProcessor(msg.sender) {
+    function sellGrainToDistributorFromProcessor(address _distributor,string memory _grainType,string memory _variety,uint _quantity,uint _pricePerLot,uint _soldDate,uint _manufactureDate) public onlyProcessor(msg.sender) {
         require(processorListMapping[msg.sender],"Processor doesn't exist");
         require(distributorListMapping[_distributor],"Distributor doesn't exist");
+        address x;
+        for(uint i=0;i<processedAddress.length;i++)
+        {
+            if(processedAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((processedGrainDetails[processedAddress[i]].processedGrainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((processedGrainDetails[processedAddress[i]].processedGrainVariety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        if(processedGrainDetails[processedAddress[i]].manufactureDate == _manufactureDate)
+                        {    
+                            x = processedAddress[i];
+                        }
+                    }
+                }
+            }
+        }
+
         if(distributorToProcessorTransfer==true )
         {
-            processorToDistributorGrainDetails[_distributor] = ProcessorToDistributorGrainDetails(_grainType,_variety,_quantity,_pricePerLot,_soldDate);
+            processorToDistributorGrainDetails[_distributor] = ProcessorToDistributorGrainDetails(_grainType,_variety,_quantity,_pricePerLot,_soldDate,_manufactureDate,processedGrainDetails[x].expDate);
             processorToDistributor.push(_distributor);
             processorToDistributorTrans[processorToDistributorTransCount] = ProcessorToDistributorTransfer(msg.sender,_distributor);
             processorToDistributorTransCount++;
@@ -695,7 +729,56 @@ contract supplyChainAgriculture {
             revert("Distributor doesn't exist or he didn't pay the bills");
         }
 
+    }
 
+    function updateDistributerGrain(string memory _grainType,string memory _variety,uint _quantity,uint _pricePer10kg,uint _manufactureDate) public onlyDistributor(msg.sender) {
+        require(distributorListMapping[msg.sender], "Distributor doesn't Exist");
+        address x = address(0);
+        for(uint i=0;i<distributorAvailableGrainAddress.length;i++)
+        {
+            if(distributorAvailableGrainAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((distributorAvailableGrainDetails[distributorAvailableGrainAddress[i]].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((distributorAvailableGrainDetails[distributorAvailableGrainAddress[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        if(distributorAvailableGrainDetails[distributorAvailableGrainAddress[i]].manufactureDate == _manufactureDate)
+                        {
+                            x = distributorAvailableGrainAddress[i];
+                        }
+                    }
+                }
+            }
+        }
+
+        address y;
+        for(uint i=0;i<processorToDistributor.length;i++)
+        {
+            if(processorToDistributor[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((processorToDistributorGrainDetails[processorToDistributor[i]].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((processorToDistributorGrainDetails[processorToDistributor[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        if(processorToDistributorGrainDetails[processorToDistributor[i]].manufactureDate == _manufactureDate)
+                        {
+                            y = processorToDistributor[i];
+                        }
+                    }
+                }
+            }
+        }
+
+        if(x==address(0))
+        {
+            distributorAvailableGrainDetails[msg.sender] = DistributorAvailableGrainDetails(_grainType,_variety,_quantity,_pricePer10kg,_manufactureDate,processorToDistributorGrainDetails[y].expDate);
+            distributorAvailableGrainAddress.push(msg.sender);
+        }
+        else
+        {
+            grainAvailableWithElevatorDetails[msg.sender].quantity += _quantity; 
+        }
+        
 
     }
 
