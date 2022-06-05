@@ -76,6 +76,11 @@ contract supplyChainAgriculture {
     mapping(address=>ProcessedGrainDetails) processedGrainDetails;
     address[] processedAddress;
 
+    Distributor[] distributorListArray;
+    mapping(address=>bool) distributorListMapping;
+    mapping(address=>uint) distributorListIndex;
+    uint distributorCount;
+
 
 
     modifier onlyOwner {
@@ -103,6 +108,12 @@ contract supplyChainAgriculture {
     modifier onlyProcessor(address _processor)
     {
         require(processorListMapping[_processor],"Processor doesn't exist");
+        _;
+    }
+
+    modifier onlyDistributor(address _distributor)
+    {
+        require(distributorListMapping[_distributor],"Distributor doesn't exist");
         _;
     }
 
@@ -177,6 +188,12 @@ contract supplyChainAgriculture {
         uint pricePerLot;
         uint manufactureDate;
         uint expDate;
+    }
+
+    struct Distributor {
+        address payable distributorAddress;
+        string distributorName;
+        string hash;
     }
 
     function addFarmer(string memory _hash) public {
@@ -581,6 +598,13 @@ contract supplyChainAgriculture {
             }
         }
         processedGrainDetails[x].quantity -= _quantity;
+    }
+
+    function addDistributor(string memory _hash, string memory _distributorName) public {
+        distributorListArray.push(Distributor(payable(msg.sender),_distributorName,_hash));
+        distributorListMapping[msg.sender] = true;
+        distributorListIndex[msg.sender] = processorCount;
+        distributorCount++;
     }
 
 
