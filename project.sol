@@ -176,6 +176,7 @@ contract supplyChainAgriculture {
         uint quantity;
         uint pricePerLot;
         uint manufactureDate;
+        uint expDate;
     }
 
     function addFarmer(string memory _hash) public {
@@ -329,6 +330,7 @@ contract supplyChainAgriculture {
     } 
 
     function updateGrainFarmerQuantity(string memory _seedType,string memory _variety, uint _quantity, uint _pricePer1q) public onlyFarmer(msg.sender) {
+        require(farmerListMapping[msg.sender], "Farmer doesn't exist");
         grownGrain[msg.sender] = GrownGrain(_seedType,_variety,_quantity,_pricePer1q);
         grownGrainAddress.push(msg.sender);
     }
@@ -517,11 +519,69 @@ contract supplyChainAgriculture {
         }
     }
 
-    function updateProcessedGrainDetails(string memory _processedGrainType,string memory _processedGrainVariety,uint _quantity,uint procePerLot) public onlyProcessor(msg.sender) {
-        
+    function updateProcessedGrainDetails(string memory _processedGrainType,string memory _processedGrainVariety,uint _quantity,uint _pricePerLot,uint _manufactureDate,uint _expDate) public onlyProcessor(msg.sender) {
+        require(processorListMapping[msg.sender],"Processor doesn't exist");
+        processedGrainDetails[msg.sender] = ProcessedGrainDetails(_processedGrainType,_processedGrainVariety,_quantity,_pricePerLot,_manufactureDate,_expDate);
+        processedAddress.push(msg.sender);
     }
 
-    
+    function updateProcessedGrainPrice(string memory _processedGrainType, string memory _processedGrainVariety, uint _pricePerLot) public onlyProcessor(msg.sender) {
+        require(processorListMapping[msg.sender],"Processor doesn't exist");
+        address x;
+        for(uint i=0;i<processedAddress.length;i++)
+        {
+            if(processedAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((processedGrainDetails[processedAddress[i]].processedGrainType))) ==keccak256(abi.encodePacked((_processedGrainType))))
+                {
+                    if(keccak256(abi.encodePacked((processedGrainDetails[processedAddress[i]].processedGrainVariety))) ==keccak256(abi.encodePacked((_processedGrainVariety))))
+                    {
+                        x = processedAddress[i];
+                    }
+                }
+            }
+        }
+        processedGrainDetails[x].pricePerLot = _pricePerLot;
+
+    }
+
+    function addProcessedGrainQuantity(string memory _processedGrainType, string memory _processedGrainVariety, uint _quantity) public onlyProcessor(msg.sender) {
+        require(processorListMapping[msg.sender],"Processor doesn't exist");
+        address x;
+        for(uint i=0;i<processedAddress.length;i++)
+        {
+            if(processedAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((processedGrainDetails[processedAddress[i]].processedGrainType))) ==keccak256(abi.encodePacked((_processedGrainType))))
+                {
+                    if(keccak256(abi.encodePacked((processedGrainDetails[processedAddress[i]].processedGrainVariety))) ==keccak256(abi.encodePacked((_processedGrainVariety))))
+                    {
+                        x = processedAddress[i];
+                    }
+                }
+            }
+        }
+        processedGrainDetails[x].quantity += _quantity;
+    }
+
+    function removeProcessedGrainQuantity(string memory _processedGrainType, string memory _processedGrainVariety, uint _quantity) public onlyProcessor(msg.sender) {
+        require(processorListMapping[msg.sender],"Processor doesn't exist");
+        address x;
+        for(uint i=0;i<processedAddress.length;i++)
+        {
+            if(processedAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((processedGrainDetails[processedAddress[i]].processedGrainType))) ==keccak256(abi.encodePacked((_processedGrainType))))
+                {
+                    if(keccak256(abi.encodePacked((processedGrainDetails[processedAddress[i]].processedGrainVariety))) ==keccak256(abi.encodePacked((_processedGrainVariety))))
+                    {
+                        x = processedAddress[i];
+                    }
+                }
+            }
+        }
+        processedGrainDetails[x].quantity -= _quantity;
+    }
 
 
 }
