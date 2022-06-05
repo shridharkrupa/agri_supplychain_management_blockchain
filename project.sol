@@ -95,6 +95,12 @@ contract supplyChainAgriculture {
     mapping(address=>DistributorAvailableGrainDetails) distributorAvailableGrainDetails;
     address[] distributorAvailableGrainAddress;
 
+    Retailer[] retailerListArray;
+    mapping(address=>bool) retailerListMapping;
+    mapping(address=>uint) retailerListIndex;
+    uint retailerCount;
+
+
 
 
     modifier onlyOwner {
@@ -128,6 +134,12 @@ contract supplyChainAgriculture {
     modifier onlyDistributor(address _distributor)
     {
         require(distributorListMapping[_distributor],"Distributor doesn't exist");
+        _;
+    }
+
+    modifier onlyRetailer(address _retailer)
+    {
+        require(retailerListMapping[_retailer],"Retailer doesn't exist");
         _;
     }
 
@@ -227,6 +239,12 @@ contract supplyChainAgriculture {
         uint pricePer10kg;
         uint manufactureDate;
         uint expDate;
+    }
+
+    struct Retailer {
+        address payable retailer;
+        string retailerName;
+        string hash;
     }
 
     function addFarmer(string memory _hash) public {
@@ -867,5 +885,14 @@ contract supplyChainAgriculture {
         }
     }
 
+
+    function addRetailer(string memory _hash,string memory _name) public {
+        retailerListArray.push(Retailer(payable(msg.sender),_name,_hash));
+        retailerListMapping[msg.sender] = true;
+        retailerListIndex[msg.sender] = retailerCount;
+        retailerCount++;
+    }
+
+    
 
 }
