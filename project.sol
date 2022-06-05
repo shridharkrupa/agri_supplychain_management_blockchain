@@ -776,10 +776,95 @@ contract supplyChainAgriculture {
         }
         else
         {
-            grainAvailableWithElevatorDetails[msg.sender].quantity += _quantity; 
+            distributorAvailableGrainDetails[x].quantity += _quantity; 
         }
-        
+    }
 
+    function addDistributorAvailableGrainQuantity(string memory _grainType,string memory _variety,uint _manufactureDate,uint _quantity) public onlyDistributor(msg.sender) {
+        require(distributorListMapping[msg.sender], "Distributor doesn't Exist");
+        address x = address(0);
+        for(uint i=0;i<distributorAvailableGrainAddress.length;i++)
+        {
+            if(distributorAvailableGrainAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((distributorAvailableGrainDetails[distributorAvailableGrainAddress[i]].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((distributorAvailableGrainDetails[distributorAvailableGrainAddress[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        if(distributorAvailableGrainDetails[distributorAvailableGrainAddress[i]].manufactureDate == _manufactureDate)
+                        {
+                            x = distributorAvailableGrainAddress[i];
+                        }
+                    }
+                }
+            }
+        }
+
+        if(x==address(0))
+        {
+            revert("Details are Not Found, You can't change the Quantity");
+        }
+        else{
+            distributorAvailableGrainDetails[x].quantity += _quantity;
+        }
+    }
+
+    function removeDistributorAvailableGrainQuantity(string memory _grainType,string memory _variety,uint _manufactureDate,uint _quantity) public onlyDistributor(msg.sender) {
+        require(distributorListMapping[msg.sender], "Distributor doesn't Exist");
+        address x = address(0);
+        for(uint i=0;i<distributorAvailableGrainAddress.length;i++)
+        {
+            if(distributorAvailableGrainAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((distributorAvailableGrainDetails[distributorAvailableGrainAddress[i]].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((distributorAvailableGrainDetails[distributorAvailableGrainAddress[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        if(distributorAvailableGrainDetails[distributorAvailableGrainAddress[i]].manufactureDate == _manufactureDate)
+                        {
+                            x = distributorAvailableGrainAddress[i];
+                        }
+                    }
+                }
+            }
+        }
+
+        if(x==address(0))
+        {
+            revert("Details are Not Found, You can't change the Quantity");
+        }
+        else{
+            distributorAvailableGrainDetails[x].quantity -= _quantity;
+        }
+    }
+
+    function updateDistributorAvailableGrainPrice(string memory _grainType,string memory _variety,uint _manufactureDate,uint _pricePer10kg) public onlyDistributor(msg.sender) {
+        require(distributorListMapping[msg.sender], "Distributor doesn't Exist");
+        address x = address(0);
+        for(uint i=0;i<distributorAvailableGrainAddress.length;i++)
+        {
+            if(distributorAvailableGrainAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((distributorAvailableGrainDetails[distributorAvailableGrainAddress[i]].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((distributorAvailableGrainDetails[distributorAvailableGrainAddress[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        if(distributorAvailableGrainDetails[distributorAvailableGrainAddress[i]].manufactureDate == _manufactureDate)
+                        {
+                            x = distributorAvailableGrainAddress[i];
+                        }
+                    }
+                }
+            }
+        }
+
+        if(x==address(0))
+        {
+            revert("Details are Not Found, You can't change the Quantity");
+        }
+        else{
+            distributorAvailableGrainDetails[x].pricePer10kg -= _pricePer10kg;
+        }
     }
 
 
