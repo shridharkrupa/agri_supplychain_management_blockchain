@@ -1041,7 +1041,93 @@ contract supplyChainAgriculture {
             retailerAvailableGrainDetails[x].quantity += _quantity; 
         }
         
-        
+    }
+
+    function addRetailerAvailableGrainQuantity(string memory _grainType,string memory _variety,uint _manufactureDate,uint _quantity) public onlyRetailer(msg.sender) {
+        require(retailerListMapping[msg.sender],"Retailer doesn't exist");
+        address x = address(0);
+        for(uint i=0;i<retailerAvailableGrainAddress.length;i++)
+        {
+            if(retailerAvailableGrainAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((retailerAvailableGrainDetails[retailerAvailableGrainAddress[i]].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((retailerAvailableGrainDetails[retailerAvailableGrainAddress[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        if(retailerAvailableGrainDetails[retailerAvailableGrainAddress[i]].manufactureDate == _manufactureDate)
+                        {
+                            x = retailerAvailableGrainAddress[i];
+                        }
+                    }
+                }
+            }
+        }
+
+        if(x==address(0))
+        {
+            revert("Details are Not Found, You can't change the Quantity");
+        }
+        else{
+            retailerAvailableGrainDetails[x].quantity += _quantity;
+        }
+    }
+
+    function removeRetailerAvailableGrainQuantity(string memory _grainType,string memory _variety,uint _manufactureDate,uint _quantity) public onlyRetailer(msg.sender) {
+        require(retailerListMapping[msg.sender],"Retailer doesn't exist");
+        address x = address(0);
+        for(uint i=0;i<retailerAvailableGrainAddress.length;i++)
+        {
+            if(retailerAvailableGrainAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((retailerAvailableGrainDetails[retailerAvailableGrainAddress[i]].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((retailerAvailableGrainDetails[retailerAvailableGrainAddress[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        if(retailerAvailableGrainDetails[retailerAvailableGrainAddress[i]].manufactureDate == _manufactureDate)
+                        {
+                            x = retailerAvailableGrainAddress[i];
+                        }
+                    }
+                }
+            }
+        }
+
+        if(x==address(0))
+        {
+            revert("Details are Not Found, You can't change the Quantity");
+        }
+        else{
+            retailerAvailableGrainDetails[x].quantity -= _quantity;
+        }
+    }
+
+    function updateRetailerAvailableGrainPrice(string memory _grainType,string memory _variety,uint _manufactureDate,uint _price) public onlyRetailer(msg.sender) {
+        require(retailerListMapping[msg.sender],"Retailer doesn't exist");
+        address x = address(0);
+        for(uint i=0;i<retailerAvailableGrainAddress.length;i++)
+        {
+            if(retailerAvailableGrainAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((retailerAvailableGrainDetails[retailerAvailableGrainAddress[i]].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((retailerAvailableGrainDetails[retailerAvailableGrainAddress[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        if(retailerAvailableGrainDetails[retailerAvailableGrainAddress[i]].manufactureDate == _manufactureDate)
+                        {
+                            x = retailerAvailableGrainAddress[i];
+                        }
+                    }
+                }
+            }
+        }
+
+        if(x==address(0))
+        {
+            revert("Details are Not Found, You can't change the Quantity");
+        }
+        else{
+            retailerAvailableGrainDetails[x].pricePer10kg -= _price;
+        }
     }
 
     
