@@ -13,6 +13,7 @@ contract supplyChainAgriculture {
     bool public processorToElevatorTransfer = false;
     bool public distributorToProcessorTransfer = false;
     bool public retailerToDistributorTransfer = false;
+    bool public customerToRetailerTransfer = false;
 
     enum CONTRACTSTATUS {idle,notCreated,created,sendRequestSubmitted}
 
@@ -25,7 +26,9 @@ contract supplyChainAgriculture {
     event transferCompleteFromDistributorToProcessor(address Distributor ,address Processor,string grainType,string variety,uint quantity,uint Price,uint time);
     event sellGrainsToDsitributorFromProcessor(address Processor,address Distributor,string grainType,string variety,uint quantity,uint pricePer1q,uint purchaseDate);
     event transferCompleteFromRetailerToDistributor(address Retailer ,address Distributor,string grainType,string variety,uint quantity,uint Price,uint time);
-    event sellGrainsToRetailerFromDistributor(address Processor,address Distributor,string grainType,string variety,uint quantity,uint pricePer1q,uint purchaseDate);
+    event sellGrainsToRetailerFromDistributor(address Processor,address Distributor,string grainType,string variety,uint quantity,uint pricePer10kg,uint purchaseDate);
+    event transferCompleteFromCustomerToRetailer(address Customer ,address Retailer,string grainType,string variety,uint quantity,uint Price,uint time);
+    event sellGrainsToCustomerToRetailer(address Retailer,address Customer,string grainType,string variety,uint quantity,uint pricePer1kg,uint purchaseDate);
 
     mapping(address=>CONTRACTSTATUS) contStat;
     mapping(uint=>SeedTrans) seedTrans;
@@ -38,6 +41,9 @@ contract supplyChainAgriculture {
     uint processorToDistributorTransCount =0;
     mapping(uint=> DistributorToRetailerTransfer) distributorToRetailerTrans;
     uint distributorToRetailerTransCount = 0;
+    mapping(uint=> RetailerToCustomerTransfer) retailerToCustomerTrans;
+    uint retailerToCustomerTransCount = 0;
+
 
     struct SeedTrans {
         address seedCompany;
@@ -60,8 +66,13 @@ contract supplyChainAgriculture {
     }
 
     struct DistributorToRetailerTransfer {
-        address destributor;
+        address distributor;
         address retailer;
+    }
+
+    struct RetailerToCustomerTransfer {
+        address Retailer;
+        address customer;
     }
 
     Farmer[] farmerListArray;
@@ -114,6 +125,13 @@ contract supplyChainAgriculture {
     mapping(address=>RetailerAvailableGrainDetails) retailerAvailableGrainDetails;
     address[] retailerAvailableGrainAddress;
 
+    Customer[] customerListArray;
+    mapping(address=>bool) customerListMapping;
+    mapping(address=>uint) customerListIndex;
+    uint customerCount;
+    mapping(address=>RetailerToCustomerGrainDetails) retailerToCustomerGrainDetails;
+    address[] retailerToCustomer;
+
 
     modifier onlyOwner {
         require(msg.sender == owner,"Sorry, This information is confidential.");
@@ -152,6 +170,12 @@ contract supplyChainAgriculture {
     modifier onlyRetailer(address _retailer)
     {
         require(retailerListMapping[_retailer],"Retailer doesn't exist");
+        _;
+    }
+
+    modifier onlyCustomer(address _customer) 
+    {
+        require(customerListMapping[_customer], "Customer doesn't exist");
         _;
     }
 
@@ -274,6 +298,21 @@ contract supplyChainAgriculture {
         string variety;
         uint quantity;
         uint pricePer10kg;
+        uint manufactureDate;
+        uint expDate;
+    }
+
+    struct Customer {
+        address payable customerAddress;
+        string customerName;
+    }
+
+    struct RetailerToCustomerGrainDetails {
+        string grainType;
+        string variety;
+        uint quantity;
+        uint pricePer10kg;
+        uint soldDate;
         uint manufactureDate;
         uint expDate;
     }
@@ -1127,6 +1166,80 @@ contract supplyChainAgriculture {
         }
         else{
             retailerAvailableGrainDetails[x].pricePer10kg -= _price;
+        }
+    }
+
+    function addCustomer(string memory _name) public {
+        customerListArray.push(Customer(payable(msg.sender),_name));
+        customerListMapping[msg.sender] = true;
+        customerListIndex[msg.sender] = customerCount;
+        customerCount++;
+    }
+
+    function buyGrainFromRetailer(address _retailer,string memory _grainType, string memory _variety, uint _quantity,uint _manufactureDate) public payable onlyCustomer(msg.sender) {
+        require(retailerListMapping[msg.sender],"Retailer doesn't exist");
+        address x;
+        for(uint i=0;i<retailerAvailableGrainAddress.length;i++)
+        {
+            if(retailerAvailableGrainAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((retailerAvailableGrainDetails[retailerAvailableGrainAddress[i]].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((retailerAvailableGrainDetails[retailerAvailableGrainAddress[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        if(retailerAvailableGrainDetails[retailerAvailableGrainAddress[i]].manufactureDate == _manufactureDate)
+                        {
+                            x = retailerAvailableGrainAddress[i];
+                        }
+                    }
+                }
+            }
+        }
+        require(_quantity <= retailerAvailableGrainDetails[x].quantity, "This much qunatity of seed is not available");
+        if(_quantity <= retailerAvailableGrainDetails[x].quantity)
+        {
+            require(msg.value>0, "you have entered 0");
+            require(msg.value == _quantity * retailerAvailableGrainDetails[x].pricePer10kg, "You haven't enterd the expected value");
+            address payable receiever = payable(_retailer);
+            receiever.transfer(msg.value); 
+            emit transferCompleteFromCustomerToRetailer(msg.sender, _retailer,_grainType,_variety,_quantity,msg.value,block.timestamp);
+            retailerAvailableGrainDetails[x].quantity -= _quantity;
+            customerToRetailerTransfer = true;   
+        }
+    }
+
+    function sellGrainTocustomerFromRetailer(address _customer, string memory _grainType,string memory _variety,uint _quantity,uint _price,uint _manufactureDate,uint _soldDate) public onlyDistributor(msg.sender) {
+        require(retailerListMapping[msg.sender],"Retailer doesn't exist");
+        require(customerListMapping[_customer],"Customer doesn't exist");
+        address x;
+        for(uint i=0;i<retailerAvailableGrainAddress.length;i++)
+        {
+            if(retailerAvailableGrainAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((retailerAvailableGrainDetails[retailerAvailableGrainAddress[i]].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((retailerAvailableGrainDetails[retailerAvailableGrainAddress[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        if(retailerAvailableGrainDetails[retailerAvailableGrainAddress[i]].manufactureDate == _manufactureDate)
+                        {    
+                            x = retailerAvailableGrainAddress[i];
+                        }
+                    }
+                }
+            }
+        }
+
+        if(retailerToDistributorTransfer==true )
+        {
+            retailerToCustomerGrainDetails[_customer] = RetailerToCustomerGrainDetails(_grainType,_variety,_quantity,_price,_soldDate,_manufactureDate,retailerAvailableGrainDetails[x].expDate);
+            retailerToCustomer.push(_customer);
+            retailerToCustomerTrans[retailerToCustomerTransCount] =RetailerToCustomerTransfer(msg.sender,_customer);
+            processorToDistributorTransCount++;
+            emit sellGrainsToRetailerFromDistributor(msg.sender, _customer, _grainType, _variety, _quantity, _price, _soldDate);
+        }
+        else
+        {
+            revert("Customer doesn't exist or he didn't pay the bills");
         }
     }
 
