@@ -111,8 +111,8 @@ contract supplyChainAgriculture {
     uint retailerCount;
     mapping(address=>DistributorToRetailerGrainDetails) distributorToRetailerGrainDetails;
     address[] distributorToRetailer;
-
-
+    mapping(address=>RetailerAvailableGrainDetails) retailerAvailableGrainDetails;
+    address[] retailerAvailableGrainAddress;
 
 
     modifier onlyOwner {
@@ -265,6 +265,15 @@ contract supplyChainAgriculture {
         uint quantity;
         uint pricePer10kg;
         uint soldDate;
+        uint manufactureDate;
+        uint expDate;
+    }
+
+    struct RetailerAvailableGrainDetails {
+        string grainType;
+        string variety;
+        uint quantity;
+        uint pricePer10kg;
         uint manufactureDate;
         uint expDate;
     }
@@ -981,6 +990,58 @@ contract supplyChainAgriculture {
         {
             revert("Retailer doesn't exist or he didn't pay the bills");
         }
+    }
+
+    function updateRetailerAvailableGrainDetails(string memory _grainType,string memory _variety,uint _quantity,uint _manufactureDate,uint _pricePer10kg) public onlyRetailer(msg.sender) {
+        require(retailerListMapping[msg.sender],"Retailer doesn't exist");
+        address x = address(0);
+        for(uint i=0;i<retailerAvailableGrainAddress.length;i++)
+        {
+            if(retailerAvailableGrainAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((retailerAvailableGrainDetails[retailerAvailableGrainAddress[i]].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((retailerAvailableGrainDetails[retailerAvailableGrainAddress[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        if(retailerAvailableGrainDetails[retailerAvailableGrainAddress[i]].manufactureDate == _manufactureDate)
+                        {
+                            x = retailerAvailableGrainAddress[i];
+                        }
+                    }
+                }
+            }
+        }
+
+        address y;
+        for(uint i=0;i<distributorToRetailer.length;i++)
+        {
+            if(distributorToRetailer[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((distributorToRetailerGrainDetails[distributorToRetailer[i]].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((distributorToRetailerGrainDetails[distributorToRetailer[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        if(distributorToRetailerGrainDetails[distributorToRetailer[i]].manufactureDate == _manufactureDate)
+                        {
+                            y = distributorToRetailer[i];
+                        }
+                    }
+                }
+            }
+        }
+
+
+        if(x==address(0))
+        {
+            retailerAvailableGrainDetails[msg.sender] = RetailerAvailableGrainDetails(_grainType,_variety,_quantity,_pricePer10kg,_manufactureDate,distributorToRetailerGrainDetails[y].expDate);
+            retailerAvailableGrainAddress.push(msg.sender);
+        }
+        else
+        {
+            retailerAvailableGrainDetails[x].quantity += _quantity; 
+        }
+        
+        
     }
 
     
