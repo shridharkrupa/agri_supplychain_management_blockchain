@@ -8,10 +8,11 @@ contract supplyChainAgriculture {
     }
 
     address private owner;
-    bool seedPricePaid = false;
-    bool elevatorToFarmerTransfer = false;
-    bool processorToElevatorTransfer = false;
-    bool distributorToProcessorTransfer = false;
+    bool public seedPricePaid = false;
+    bool public elevatorToFarmerTransfer = false;
+    bool public processorToElevatorTransfer = false;
+    bool public distributorToProcessorTransfer = false;
+    bool public retailerToDistributorTransfer = false;
 
     enum CONTRACTSTATUS {idle,notCreated,created,sendRequestSubmitted}
 
@@ -23,6 +24,8 @@ contract supplyChainAgriculture {
     event sellGrainsToProcessorFromElevator(address Elevator,address Processor,string grainType,string variety,uint quantity,uint pricePer1q,uint purchaseDate);
     event transferCompleteFromDistributorToProcessor(address Distributor ,address Processor,string grainType,string variety,uint quantity,uint Price,uint time);
     event sellGrainsToDsitributorFromProcessor(address Processor,address Distributor,string grainType,string variety,uint quantity,uint pricePer1q,uint purchaseDate);
+    event transferCompleteFromRetailerToDistributor(address Retailer ,address Distributor,string grainType,string variety,uint quantity,uint Price,uint time);
+    event sellGrainsToRetailerFromDistributor(address Processor,address Distributor,string grainType,string variety,uint quantity,uint pricePer1q,uint purchaseDate);
 
     mapping(address=>CONTRACTSTATUS) contStat;
     mapping(uint=>SeedTrans) seedTrans;
@@ -32,7 +35,9 @@ contract supplyChainAgriculture {
     mapping (uint=>ElevatorToProcessorTrans) elevatorToProcessorTrans; 
     uint elevatorToProcessorTransCount = 0;
     mapping (uint => ProcessorToDistributorTransfer) processorToDistributorTrans;
-    uint processorToDistributorTransCount;
+    uint processorToDistributorTransCount =0;
+    mapping(uint=> DistributorToRetailerTransfer) distributorToRetailerTrans;
+    uint distributorToRetailerTransCount = 0;
 
     struct SeedTrans {
         address seedCompany;
@@ -52,6 +57,11 @@ contract supplyChainAgriculture {
     struct ProcessorToDistributorTransfer {
         address processor;
         address elevator;
+    }
+
+    struct DistributorToRetailerTransfer {
+        address destributor;
+        address retailer;
     }
 
     Farmer[] farmerListArray;
@@ -99,6 +109,8 @@ contract supplyChainAgriculture {
     mapping(address=>bool) retailerListMapping;
     mapping(address=>uint) retailerListIndex;
     uint retailerCount;
+    mapping(address=>DistributorToRetailerGrainDetails) distributorToRetailerGrainDetails;
+    address[] distributorToRetailer;
 
 
 
@@ -245,6 +257,16 @@ contract supplyChainAgriculture {
         address payable retailer;
         string retailerName;
         string hash;
+    }
+
+    struct DistributorToRetailerGrainDetails {
+        string grainType;
+        string variety;
+        uint quantity;
+        uint pricePer10kg;
+        uint soldDate;
+        uint manufactureDate;
+        uint expDate;
     }
 
     function addFarmer(string memory _hash) public {
@@ -891,6 +913,74 @@ contract supplyChainAgriculture {
         retailerListMapping[msg.sender] = true;
         retailerListIndex[msg.sender] = retailerCount;
         retailerCount++;
+    }
+
+    function buyGrainFromDistributor(address _distributor,string memory _grainType, string memory _variety, uint _quantity,uint _manufactureDate) public payable onlyRetailer(msg.sender) {
+        require(retailerListMapping[msg.sender],"Retailer doesn't exist");
+        address x;
+        for(uint i=0;i<distributorAvailableGrainAddress.length;i++)
+        {
+            if(distributorAvailableGrainAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((distributorAvailableGrainDetails[distributorAvailableGrainAddress[i]].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((distributorAvailableGrainDetails[distributorAvailableGrainAddress[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        if(distributorAvailableGrainDetails[distributorAvailableGrainAddress[i]].manufactureDate == _manufactureDate)
+                        {
+                            x = distributorAvailableGrainAddress[i];
+                        }
+                    }
+                }
+            }
+        }
+        require(_quantity <= distributorAvailableGrainDetails[x].quantity, "This much qunatity of seed is not available");
+        if(_quantity <= distributorAvailableGrainDetails[x].quantity)
+        {
+            require(msg.value>0, "you have entered 0");
+            require(msg.value == _quantity * distributorAvailableGrainDetails[x].pricePer10kg, "You haven't enterd the expected value");
+            address payable receiever = payable(_distributor);
+            receiever.transfer(msg.value); 
+            emit transferCompleteFromRetailerToDistributor(msg.sender, _distributor,_grainType,_variety,_quantity,msg.value,block.timestamp);
+            distributorAvailableGrainDetails[x].quantity -= _quantity;
+            retailerToDistributorTransfer = true;   
+        }
+
+    }
+
+    function sellGrainToRetailerFromDistributor(address _retailer, string memory _grainType,string memory _variety,uint _quantity,uint _price,uint _manufactureDate,uint _soldDate) public onlyDistributor(msg.sender) {
+        require(distributorListMapping[msg.sender],"Distributor doesn't exist");
+        require(distributorListMapping[_retailer],"Retailer doesn't exist");
+        address x;
+        for(uint i=0;i<distributorAvailableGrainAddress.length;i++)
+        {
+            if(distributorAvailableGrainAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((distributorAvailableGrainDetails[distributorAvailableGrainAddress[i]].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((distributorAvailableGrainDetails[distributorAvailableGrainAddress[i]].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        if(distributorAvailableGrainDetails[distributorAvailableGrainAddress[i]].manufactureDate == _manufactureDate)
+                        {    
+                            x = distributorAvailableGrainAddress[i];
+                        }
+                    }
+                }
+            }
+        }
+
+        if(retailerToDistributorTransfer==true )
+        {
+            distributorToRetailerGrainDetails[_retailer] = DistributorToRetailerGrainDetails(_grainType,_variety,_quantity,_price,_soldDate,_manufactureDate,distributorAvailableGrainDetails[x].expDate);
+            distributorToRetailer.push(_retailer);
+            distributorToRetailerTrans[distributorToRetailerTransCount] = DistributorToRetailerTransfer(msg.sender,_retailer);
+            processorToDistributorTransCount++;
+            emit sellGrainsToRetailerFromDistributor(msg.sender, _retailer, _grainType, _variety, _quantity, _price, _soldDate);
+        }
+        else
+        {
+            revert("Retailer doesn't exist or he didn't pay the bills");
+        }
     }
 
     
