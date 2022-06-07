@@ -214,7 +214,7 @@ contract supplyChainAgri {
     }
 
     function seedCompanyDashBoard() public view onlySeedCompany(msg.sender) returns(RequestDetails[] memory) {
-        RequestDetails[] memory temp;
+        RequestDetails[] memory temp = new RequestDetails[](requestFromFarmer.length);
         uint count = 0;
         for(uint i=0;i<requestFromFarmer.length;i++)
         {
