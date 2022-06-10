@@ -46,6 +46,7 @@ contract supplyChainAgri {
     event transferCompleteSeed(address farmer, address Seedcompany,string seedType,string variety,uint quantity,uint Price,uint time);
     event sellOfSeeds(address farmer, address seedCompany, string seedType, string variety,uint quantity,uint time);
     event transferCompleteFromProcessorToFarmer(address processor, address farmer,string grownGrainType,string variety,uint quantity,uint Price,uint time);
+    event sellGrainsToProcessorFromElevator(address Farmer,address Processor,string grainType,string variety,uint quantity,uint pricePer1q,uint purchaseDate);
 
     Farmer[] farmerListArray;
     mapping(address =>bool) public farmerListMapping;
@@ -66,6 +67,9 @@ contract supplyChainAgri {
     mapping(address =>bool) processorListMapping;
     mapping(address =>uint) processorListIndex;
     uint processorCount = 0;
+    RequestDetails[] requestFromProcessor;
+    mapping(address=>mapping(uint=>ProcessedGrain)) processedGrainDetails;
+    address[] public processorUpdateAddress;
 
 
     modifier onlyOwner {
@@ -127,6 +131,15 @@ contract supplyChainAgri {
         string variety;
         uint quantity;
         uint pricePer1q;
+    }
+
+    struct ProcessedGrain {
+        string grainType;
+        string variety;
+        uint quantity;
+        uint pricePer10kg;
+        uint manDate;
+        uint expDate;
     }
 
     function addFarmer(address _farmer ) public onlyOwner {
@@ -388,13 +401,65 @@ contract supplyChainAgri {
             receiever.transfer(msg.value); 
             emit transferCompleteFromProcessorToFarmer(msg.sender, _farmer,_grainType,_variety,_quantity,msg.value,block.timestamp);
             grownGrain[x][_varietyID].quantity -= _quantity;
-            processorToFarmerTransfer = true;   
+            processorToFarmerTransfer = true; 
+            requestFromProcessor.push(RequestDetails(msg.sender,_farmer,_grainType,_variety,_varietyID,_quantity,block.timestamp));  
         }
     } 
 
-    
+    function sellGrianToProcessor(address _processor,string memory _grainType, string memory _variety,uint _varietyID,uint _quantity,uint _pricePer1q) public onlyFarmer(msg.sender) {
+        require(farmerListMapping[msg.sender], "Farmer Doesn't Exist");
+        if(processorToFarmerTransfer==true)
+        {
+            uint x;
+            processorToFarmerTrans.push(ProcessorToFarmerTrans(msg.sender,_processor));
+            emit sellGrainsToProcessorFromElevator(_processor, msg.sender, _grainType, _variety,_quantity,_pricePer1q,block.timestamp);
+            for(uint i=0;i<requestFromProcessor.length;i++)
+            {
+                if(requestFromProcessor[i].to == msg.sender)
+                {
+                    if(keccak256(abi.encodePacked((requestFromProcessor[i].Type))) == keccak256(abi.encodePacked((_grainType))))
+                    {
+                        if(keccak256(abi.encodePacked((requestFromProcessor[i].variety))) == keccak256(abi.encodePacked((_variety))))
+                        {
+                            if(requestFromProcessor[i].varietyID == _varietyID)
+                            {
+                                x = i;
+                            }
+                        }
+                    }
+                }
+            }
+            requestFromProcessor[x] = requestFromProcessor[requestFromProcessor.length -1];
+            requestFromProcessor.pop();
+        }
+        else {
+            revert("Processor doesn't exist or he didn't pay the bills");
+        }
+    }
 
+    function FarmerDashBoard() public view onlyFarmer(msg.sender) returns(RequestDetails[] memory) {
+        RequestDetails[] memory temp = new RequestDetails[](requestFromProcessor.length);
+        uint count = 0;
+        for(uint i=0;i<requestFromProcessor.length;i++)
+        {
+            if(requestFromProcessor[i].to == msg.sender)
+            {
+                temp[count] = requestFromProcessor[i];
+                count++;
+            }
+        }
+        if(temp.length == 0)
+        {
+            revert("You don't have any order");
+        }
+        return(temp);
+    }
 
+    function updateProcessedGrain(string memory _grainType,string memory _variety, uint _varietyID,uint _quantity, uint _pricePer10kg,uint _manDate,uint _expDate) public onlyFarmer(msg.sender) {
+        require(processorListMapping[msg.sender], "Processor doesn't exist");
+        processedGrainDetails[msg.sender][_varietyID] = ProcessedGrain(_grainType,_variety,_quantity,_pricePer10kg,_manDate,_expDate);
+        processorUpdateAddress.push(msg.sender);
+    }
 
 
 }
