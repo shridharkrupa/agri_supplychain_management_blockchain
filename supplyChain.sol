@@ -14,9 +14,7 @@ contract supplyChainAgri {
     bool retailerToProcessorTransfer = false;
     bool customerToRetailerTransfer = false;
 
-    mapping(uint=>SeedTrans) seedTrans;
-    uint seedTransCount = 0;
-
+    SeedTrans[] seedTrans;
     ProcessorToFarmerTrans[] processorToFarmerTrans;
     RetailerToProcessorTrans[] retailerToProcessorTrans;
     CustomerToRetailerTrans[] customerToRetailerTrans;
@@ -25,21 +23,25 @@ contract supplyChainAgri {
     struct SeedTrans {
         address seedCompany;
         address farmer; 
+        SeedDetails seedDetails;
     }
 
     struct ProcessorToFarmerTrans {
         address processor;
         address farmer;
+        GrownGrain soldGrainFromProcessortoFarmer;
     }
 
     struct RetailerToProcessorTrans {
         address retailer;
         address processor;
+        ProcessedGrain processedGrain;
     }
 
     struct CustomerToRetailerTrans {
         address customer;
         address retailer;
+        ProcessedGrain soldToCustomer;
     }
 
 
@@ -48,6 +50,10 @@ contract supplyChainAgri {
     event transferCompleteFromProcessorToFarmer(address processor, address farmer,string grownGrainType,string variety,uint quantity,uint Price,uint time);
     event sellGrainsToProcessorFromElevator(address Farmer,address Processor,string grainType,string variety,uint quantity,uint pricePer1q,uint purchaseDate);
     event transferCompleteFromRetailerToProcessor(address Retailer ,address Processor,string grainType,string variety,uint quantity,uint Price,uint time);
+    event sellGrainsToRetailerFromProcessor(address Processor,address Retailer,string grainType,string variety,uint quantity,uint pricePer1q,uint purchaseDate);
+    event transferCompleteFromCustomerToRetailer(address Customer ,address Retailer,string grainType,string variety,uint quantity,uint Price,uint time);
+    event sellGrainsToCustomerFromRetailer(address Retailer,address Customer,string grainType,string variety,uint quantity,uint pricePer1q,uint purchaseDate);
+
 
 
     Farmer[] farmerListArray;
@@ -72,16 +78,26 @@ contract supplyChainAgri {
     uint processorCount = 0;
     mapping(address=>mapping(uint=>ProcessedGrain)) processedGrainDetails;
     address[] public processorUpdateAddress;
+    RequestDetails[] requestFromRetailer;
 
     Retailer[] retailerListArray;
     mapping(address=>bool) retailerListMapping;
     mapping(address=>uint) retailerListIndex;
     uint retailerCount;
+    mapping(address=>mapping(uint=>ProcessedGrain)) retailerGrainDetails;
+    address[] public retailerUpdateAddress;
+    RequestDetails[] requestFromCustomer;
+
+    Customer[] customerListArray;
+    mapping(address=>bool) customerListMapping;
+    mapping(address=>uint) customerLisIndex;
+    uint customerCount;
+    
     
 
 
     modifier onlyOwner {
-        require(msg.sender == owner,"Sorry, This information is confidential.");
+        require(msg.sender == owner,"confidential.");
         _;
     }
 
@@ -104,6 +120,11 @@ contract supplyChainAgri {
 
     modifier onlyRetailer(address _retailer) {
         require(retailerListMapping[_retailer],"Retailer doesn't exist");
+        _;
+    }
+
+    modifier onlyCustomer(address _customer) {
+        require(customerListMapping[_customer],"Customer doesn't exist");
         _;
     }
 
@@ -150,13 +171,17 @@ contract supplyChainAgri {
         string grainType;
         string variety;
         uint quantity;
-        uint pricePer10kg;
+        uint pricePerQuantity;
         uint manDate;
         uint expDate;
     }
 
     struct Retailer {
         address payable retailerAddress;
+    }
+
+    struct Customer {
+        address payable customerAddress;
     }
 
     function addFarmer(address _farmer ) public onlyOwner {
@@ -166,19 +191,11 @@ contract supplyChainAgri {
         farmerCount++;
     }
 
-    function getListOfFarmer() view onlyOwner public returns(Farmer[] memory , uint) {
-        return (farmerListArray, farmerCount);
-    }
-
     function addSeedCompany(address _seedCompany) public onlyOwner{
         seedCompanyListArray.push(SeedCompany(payable(_seedCompany)));
         seedCompanyListMapping[_seedCompany] = true;        
         seedCompanyIndex[_seedCompany] = seedCompanyCount;       //storing in mapping to get index
         seedCompanyCount++;
-    }
-
-    function getListOfseedCompany() view public returns(SeedCompany[] memory ,uint) {
-        return (seedCompanyListArray,seedCompanyCount);
     }
 
     function updateSeedDetails(string memory  _seedType,string memory  _variety,uint _varietyID,uint _quantity,uint _pricePer10g) public onlySeedCompany(msg.sender) {
@@ -202,7 +219,7 @@ contract supplyChainAgri {
             seedUpdateAddress.push(msg.sender);
         }
         else{
-            revert("Seed Details are already exist!");
+            revert("Details exist!");
         }
     }
 
@@ -224,44 +241,7 @@ contract supplyChainAgri {
         seedTypeVariety[x][_varietyID].quantity += _addQuantity;
     }
 
-    function removeSeedQuantity(string memory  _seedType, string memory  _variety,uint _varietyID, uint _addQuantity) public onlySeedCompany(msg.sender) {
-        address x;
-        for(uint i=0;i<seedUpdateAddress.length;i++)
-        {
-            if(seedUpdateAddress[i]==msg.sender)
-            {
-                if(keccak256(abi.encodePacked((seedTypeVariety[seedUpdateAddress[i]][_varietyID].seedType))) ==keccak256(abi.encodePacked((_seedType))))
-                {
-                    if(keccak256(abi.encodePacked((seedTypeVariety[seedUpdateAddress[i]][_varietyID].variety))) ==keccak256(abi.encodePacked((_variety))))
-                    {
-                        x = seedUpdateAddress[i];
-                    }
-                }
-            }
-        }
-        seedTypeVariety[x][_varietyID].quantity -= _addQuantity;
-    }
-
-     function updateSeedPrice(string memory  _seedType,string memory _variety,uint _varietyID, uint _pricePer10g) public onlySeedCompany(msg.sender) {
-        address x;
-        for(uint i=0;i<seedUpdateAddress.length;i++)
-        {
-            if(seedUpdateAddress[i]==msg.sender)
-            {
-                if(keccak256(abi.encodePacked((seedTypeVariety[seedUpdateAddress[i]][_varietyID].seedType))) ==keccak256(abi.encodePacked((_seedType))))
-                {
-                    if(keccak256(abi.encodePacked((seedTypeVariety[seedUpdateAddress[i]][_varietyID].variety))) ==keccak256(abi.encodePacked((_variety))))
-                    {
-                        x = seedUpdateAddress[i];
-                    }
-                }
-            }
-        }
-        seedTypeVariety[x][_varietyID].pricePer10g = _pricePer10g;
-    }
-
     function buySeeds(address payable _seedCompany,string memory _seedType,string memory _variety,uint _varietyID, uint _quantity) public payable onlyFarmer(msg.sender) {
-        require(farmerListMapping[msg.sender], "Farmer doesn't Exist");
         address x;
         for(uint i=0;i<seedUpdateAddress.length;i++)
         {
@@ -308,13 +288,11 @@ contract supplyChainAgri {
         return(temp);
     }
 
-    function sellSeeds(address _farmer,string memory _seedType, string memory _variety,uint _varietyID,uint _quantity) public onlySeedCompany(msg.sender) {
-        require(seedCompanyListMapping[msg.sender], "Seed Company Doesn't Exist");
+    function sellSeeds(address _farmer,string memory _seedType, string memory _variety,uint _varietyID,uint _quantity,uint _pricePer10g) public onlySeedCompany(msg.sender) {
         if(seedPricePaid==true)
         {
             uint x;
-            seedTrans[seedTransCount] = SeedTrans(msg.sender,_farmer);
-            seedTransCount++;
+            seedTrans.push(SeedTrans(msg.sender,_farmer,SeedDetails(_seedType,_variety,_quantity,_pricePer10g)));
             emit sellOfSeeds(_farmer, msg.sender, _seedType, _variety,_quantity,block.timestamp);
             for(uint i=0;i<requestFromFarmer.length;i++)
             {
@@ -334,21 +312,15 @@ contract supplyChainAgri {
             }
             requestFromFarmer[x] = requestFromFarmer[requestFromFarmer.length -1];
             requestFromFarmer.pop();
+
         }
         else {
-            revert("Farmer doesn't exist or he didn't pay the bills");
+            revert("Error");
         }
     }
 
-    function updateGrainFarmerQuantity(string memory _seedType,string memory _variety, uint _varietyID,uint _quantity, uint _pricePer1q) public onlyFarmer(msg.sender) {
-        require(farmerListMapping[msg.sender], "Farmer doesn't exist");
-        grownGrain[msg.sender][_varietyID] = GrownGrain(_seedType,_variety,_quantity,_pricePer1q);
-        grownGrainAddress.push(msg.sender);
-    }
-
-    function updateGrainPriceByFarmer(string memory _grainTypeGrown,string memory _variety,uint _varietyID,uint _pricePer1q) public onlyFarmer(msg.sender) {
-        require(farmerListMapping[msg.sender], "Farmer doesn't exist");
-        address x;
+    function updateGrainFarmerQuantity(string memory _grainTypeGrown,string memory _variety, uint _varietyID,uint _quantity, uint _pricePer1q) public onlyFarmer(msg.sender) {
+        address x = address(0);
         for(uint i=0;i<grownGrainAddress.length;i++)
         {
             if(grownGrainAddress[i]==msg.sender)
@@ -362,12 +334,18 @@ contract supplyChainAgri {
                 }
             }
         }
-        grownGrain[x][_varietyID].pricePer1q = _pricePer1q;
-
+        if(x == address(0))
+        {
+            grownGrain[msg.sender][_varietyID] = GrownGrain(_grainTypeGrown,_variety,_quantity,_pricePer1q);
+            grownGrainAddress.push(msg.sender);
+        }
+        else
+        {
+            revert("details exist");
+        }
     }
 
     function updateGrainQuantityByFarmer(string memory _grainTypeGrown,string memory _variety,uint _varietyID,uint _quantity) public onlyFarmer(msg.sender) {
-        require(farmerListMapping[msg.sender], "Farmer doesn't exist");
         address x;
         for(uint i=0;i<grownGrainAddress.length;i++)
         {
@@ -394,7 +372,6 @@ contract supplyChainAgri {
     }
 
     function buyGrainFromFarmer(address payable _farmer,string memory _grainType,string memory _variety,uint _varietyID,uint _quantity ) public payable onlyProcessor(msg.sender) {
-        require(processorListMapping[msg.sender],"Processor doesn't exist");
         address x;
         for(uint i=0;i<grownGrainAddress.length;i++)
         {
@@ -409,11 +386,11 @@ contract supplyChainAgri {
                 }
             }
         }
-        require(_quantity <= grownGrain[x][_varietyID].quantity, "This much qunatity of seed is not available");
+        require(_quantity <= grownGrain[x][_varietyID].quantity, "Not Available");
         if(_quantity <= grownGrain[x][_varietyID].quantity)
         {
             require(msg.value>0, "you have entered 0");
-            require(msg.value == _quantity * grownGrain[x][_varietyID].pricePer1q, "You haven't enterd the expected value");
+            require(msg.value == _quantity * grownGrain[x][_varietyID].pricePer1q, "rong value");
             address payable receiever = payable(_farmer);
             receiever.transfer(msg.value); 
             emit transferCompleteFromProcessorToFarmer(msg.sender, _farmer,_grainType,_variety,_quantity,msg.value,block.timestamp);
@@ -424,11 +401,10 @@ contract supplyChainAgri {
     } 
 
     function sellGrianToProcessor(address _processor,string memory _grainType, string memory _variety,uint _varietyID,uint _quantity,uint _pricePer1q) public onlyFarmer(msg.sender) {
-        require(farmerListMapping[msg.sender], "Farmer Doesn't Exist");
         if(processorToFarmerTransfer==true)
         {
             uint x;
-            processorToFarmerTrans.push(ProcessorToFarmerTrans(msg.sender,_processor));
+            processorToFarmerTrans.push(ProcessorToFarmerTrans(msg.sender,_processor,GrownGrain(_grainType,_variety,_quantity,_pricePer1q)));
             emit sellGrainsToProcessorFromElevator(_processor, msg.sender, _grainType, _variety,_quantity,_pricePer1q,block.timestamp);
             for(uint i=0;i<requestFromProcessor.length;i++)
             {
@@ -473,13 +449,6 @@ contract supplyChainAgri {
     }
 
     function updateProcessedGrain(string memory _grainType,string memory _variety, uint _varietyID,uint _quantity, uint _pricePer10kg,uint _manDate,uint _expDate) public onlyFarmer(msg.sender) {
-        require(processorListMapping[msg.sender], "Processor doesn't exist");
-        processedGrainDetails[msg.sender][_varietyID] = ProcessedGrain(_grainType,_variety,_quantity,_pricePer10kg,_manDate,_expDate);
-        processorUpdateAddress.push(msg.sender);
-    }
-
-    function updateProcessedGrainPrice(string memory _grainType, string memory _variety,uint _varietyID, uint _pricePer10kg,uint _manDate) public onlyProcessor(msg.sender) {
-        require(processorListMapping[msg.sender],"Processor doesn't exist");
         address x = address(0);
         for(uint i=0;i<processorUpdateAddress.length;i++)
         {
@@ -497,19 +466,19 @@ contract supplyChainAgri {
                 }
             }
         }
-          if(x == address(0))
+        if(x == address(0))
         {
-            revert("Details are not found");
+            processedGrainDetails[msg.sender][_varietyID] = ProcessedGrain(_grainType,_variety,_quantity,_pricePer10kg,_manDate,_expDate);
+            processorUpdateAddress.push(msg.sender);
         }
         else
         {
-            processedGrainDetails[x][_varietyID].pricePer10kg = _pricePer10kg;
+            revert("Details are not found"); 
         }
 
     }
 
     function addProcessedGrainQuantity(string memory _grainType, string memory _variety,uint _varietyID, uint _quantity,uint _manDate) public onlyProcessor(msg.sender) {
-        require(processorListMapping[msg.sender],"Processor doesn't exist");
         address x = address(0);
         for(uint i=0;i<processorUpdateAddress.length;i++)
         {
@@ -533,7 +502,7 @@ contract supplyChainAgri {
         }
         else
         {
-            processedGrainDetails[x][_varietyID].quantity = _quantity;
+            processedGrainDetails[x][_varietyID].quantity += _quantity;
         }
 
     }
@@ -546,7 +515,6 @@ contract supplyChainAgri {
     }
 
     function buyGrainFromProcessor(address _processor,string memory _grainType, string memory _variety,uint _varietyID, uint _quantity,uint _manDate) public payable onlyRetailer(msg.sender) {
-        require(retailerListMapping[msg.sender],"Retailer doesn't exist");
         address x;
         for(uint i=0;i<processorUpdateAddress.length;i++)
         {
@@ -564,20 +532,191 @@ contract supplyChainAgri {
                 }
             }
         }
-        require(_quantity <= processedGrainDetails[x][_varietyID].quantity, "This much qunatity of seed is not available");
+        require(_quantity <= processedGrainDetails[x][_varietyID].quantity, "This much qunatity of grain is not available");
         if(_quantity <= processedGrainDetails[x][_varietyID].quantity)
         {
             require(msg.value>0, "you have entered 0");
-            require(msg.value == _quantity * processedGrainDetails[x][_varietyID].pricePer10kg, "You haven't enterd the expected value");
+            require(msg.value == _quantity * processedGrainDetails[x][_varietyID].pricePerQuantity, "You haven't enterd the expected value");
             address payable receiever = payable(_processor);
             receiever.transfer(msg.value); 
             emit transferCompleteFromRetailerToProcessor(msg.sender, _processor,_grainType,_variety,_quantity,msg.value,block.timestamp);
             processedGrainDetails[x][_varietyID].quantity -= _quantity;
-            retailerToProcessorTransfer = true;   
+            retailerToProcessorTransfer = true;  
+            requestFromRetailer.push(RequestDetails(msg.sender,_processor,_grainType,_variety,_varietyID,_quantity,block.timestamp));
         }
 
     }
 
+    function sellGrianToRetailer(address _retailer,string memory _grainType, string memory _variety,uint _varietyID,uint _quantity,uint _pricePer10kg,uint _manDate) public onlyProcessor(msg.sender) {
+        if(processorToFarmerTransfer==true)
+        {
+            uint x;
+            retailerToProcessorTrans.push(RetailerToProcessorTrans(msg.sender,_retailer,ProcessedGrain(_grainType,_variety,_quantity,_pricePer10kg,_manDate,processedGrainDetails[msg.sender][_varietyID].expDate)));
+            emit sellGrainsToRetailerFromProcessor(_retailer, msg.sender, _grainType, _variety,_quantity,_pricePer10kg,block.timestamp);
+            for(uint i=0;i<requestFromRetailer.length;i++)
+            {
+                if(requestFromRetailer[i].to == msg.sender)
+                {
+                    if(keccak256(abi.encodePacked((requestFromRetailer[i].Type))) == keccak256(abi.encodePacked((_grainType))))
+                    {
+                        if(keccak256(abi.encodePacked((requestFromRetailer[i].variety))) == keccak256(abi.encodePacked((_variety))))
+                        {
+                            if(requestFromRetailer[i].varietyID == _varietyID)
+                            {
+                                x = i;
+                            }
+                        }
+                    }
+                }
+            }
+            requestFromRetailer[x] = requestFromRetailer[requestFromRetailer.length -1];
+            requestFromRetailer.pop();
+        }
+        else {
+            revert("error");
+        }
+    }
 
+    function ProcessorDashBoard() public view onlyProcessor(msg.sender) returns(RequestDetails[] memory) {
+        RequestDetails[] memory temp = new RequestDetails[](requestFromRetailer.length);
+        uint count = 0;
+        for(uint i=0;i<requestFromRetailer.length;i++)
+        {
+            if(requestFromRetailer[i].to == msg.sender)
+            {
+                temp[count] = requestFromRetailer[i];
+                count++;
+            }
+        }
+        if(temp.length == 0)
+        {
+            revert("You don't have any order");
+        }
+        return(temp);
+    }
+
+    function updateRetailerGrain(string memory _grainType,string memory _variety, uint _varietyID,uint _quantity, uint _pricePerkg,uint _manDate,uint _expDate) public onlyRetailer(msg.sender) {
+        address x = address(0);
+        for(uint i=0;i<retailerUpdateAddress.length;i++)
+        {
+            if(retailerUpdateAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((retailerGrainDetails[retailerUpdateAddress[i]][_varietyID].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((retailerGrainDetails[retailerUpdateAddress[i]][_varietyID].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        if(retailerGrainDetails[retailerUpdateAddress[i]][_varietyID].manDate == _manDate)
+                        {
+                            x   = retailerUpdateAddress[i];
+                        }
+                    }
+                }
+            }
+        }
+
+        retailerGrainDetails[msg.sender][_varietyID] = ProcessedGrain(_grainType,_variety,_quantity,_pricePerkg,_manDate,_expDate);
+        retailerUpdateAddress.push(msg.sender);
+    }
+
+    function updateRetailerGrainQuantity(string memory _grainType,string memory _variety, uint _varietyID,uint _quantity,uint _manDate) public onlyRetailer(msg.sender) {
+        address x = address(0);
+        for(uint i=0;i<retailerUpdateAddress.length;i++)
+        {
+            if(retailerUpdateAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((retailerGrainDetails[retailerUpdateAddress[i]][_varietyID].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((retailerGrainDetails[retailerUpdateAddress[i]][_varietyID].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        if(retailerGrainDetails[retailerUpdateAddress[i]][_varietyID].manDate == _manDate)
+                        {
+                            x   = retailerUpdateAddress[i];
+                        }
+                    }
+                }
+            }
+        }
+        retailerGrainDetails[x][_varietyID].quantity += _quantity;
+    }
+
+    function buyGrainFromRetailer(address _retailer,string memory _grainType, string memory _variety,uint _varietyID, uint _quantity,uint _manDate) public payable onlyCustomer(msg.sender) {
+        address x;
+        for(uint i=0;i<retailerUpdateAddress.length;i++)
+        {
+            if(retailerUpdateAddress[i]==msg.sender)
+            {
+                if(keccak256(abi.encodePacked((retailerGrainDetails[retailerUpdateAddress[i]][_varietyID].grainType))) ==keccak256(abi.encodePacked((_grainType))))
+                {
+                    if(keccak256(abi.encodePacked((retailerGrainDetails[retailerUpdateAddress[i]][_varietyID].variety))) ==keccak256(abi.encodePacked((_variety))))
+                    {
+                        if(processedGrainDetails[retailerUpdateAddress[i]][_varietyID].manDate == _manDate)
+                        {
+                            x = retailerUpdateAddress[i];
+                        }
+                    }
+                }
+            }
+        }
+        require(_quantity <= processedGrainDetails[x][_varietyID].quantity, "Not Available");
+        if(_quantity <= processedGrainDetails[x][_varietyID].quantity)
+        {
+            require(msg.value>0, "you have entered 0");
+            require(msg.value == _quantity * retailerGrainDetails[x][_varietyID].pricePerQuantity, "enter right value");
+            address payable receiever = payable(_retailer);
+            receiever.transfer(msg.value); 
+            emit transferCompleteFromCustomerToRetailer(msg.sender, _retailer,_grainType,_variety,_quantity,msg.value,block.timestamp);
+            retailerGrainDetails[x][_varietyID].quantity -= _quantity;
+            customerToRetailerTransfer = true;  
+            requestFromCustomer.push(RequestDetails(msg.sender,_retailer,_grainType,_variety,_varietyID,_quantity,block.timestamp));
+        }
+    }
+
+    function RetailerDashBoard() public view onlyRetailer(msg.sender) returns(RequestDetails[] memory) {
+        RequestDetails[] memory temp = new RequestDetails[](requestFromRetailer.length);
+        uint count = 0;
+        for(uint i=0;i<requestFromCustomer.length;i++)
+        {
+            if(requestFromCustomer[i].to == msg.sender)
+            {
+                temp[count] = requestFromCustomer[i];
+                count++;
+            }
+        }
+        if(temp.length == 0)
+        {
+            revert("You don't have any order");
+        }
+        return(temp);
+    }
+
+    function sellGrianToCustomer(address _customer,string memory _grainType, string memory _variety,uint _varietyID,uint _quantity,uint _pricePerkg,uint _manDate) public onlyProcessor(msg.sender) {
+        if(processorToFarmerTransfer==true)
+        {
+            uint x;
+            customerToRetailerTrans.push(CustomerToRetailerTrans(msg.sender,_customer,ProcessedGrain(_grainType,_variety,_quantity,_pricePerkg,_manDate,retailerGrainDetails[msg.sender][_varietyID].expDate)));
+            emit sellGrainsToCustomerFromRetailer(_customer, msg.sender, _grainType, _variety,_quantity,_pricePerkg,block.timestamp);
+            for(uint i=0;i<requestFromRetailer.length;i++)
+            {
+                if(requestFromCustomer[i].to == msg.sender)
+                {
+                    if(keccak256(abi.encodePacked((requestFromCustomer[i].Type))) == keccak256(abi.encodePacked((_grainType))))
+                    {
+                        if(keccak256(abi.encodePacked((requestFromCustomer[i].variety))) == keccak256(abi.encodePacked((_variety))))
+                        {
+                            if(requestFromCustomer[i].varietyID == _varietyID)
+                            {
+                                x = i;
+                            }
+                        }
+                    }
+                }
+            }
+            requestFromCustomer[x] = requestFromCustomer[requestFromCustomer.length -1];
+            requestFromCustomer.pop();
+        }
+        else {
+            revert("error");
+        }
+    }
 
 }
